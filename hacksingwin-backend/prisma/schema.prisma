@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PARTICIPANT
+  ADMIN
+}
+
+enum TelemetryType {
+  TAB_SWITCH
+  LARGE_PASTE
+  RECONNECT
+}
+
+model Team {
+  id              String          @id @default(uuid())
+  name            String          @unique
+  passCode        String          @unique
+  currentEditorId String?
+  lockGeneration  Int             @default(1)
+  members         User[]
+  submissions     Submission[]
+  snapshots       CodeSnapshot[]
+  telemetry       TelemetryLog[]
+  createdAt       DateTime        @default(now())
+}
+
+model User {
+  id           String         @id @default(uuid())
+  username     String         @unique
+  passwordHash String
+  role         Role           @default(PARTICIPANT)
+  seatSide     String         @default("LEFT") // "LEFT" or "RIGHT"
+  teamId       String?
+  team         Team?          @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  submissions  Submission[]
+  telemetry    TelemetryLog[]
+  createdAt    DateTime       @default(now())
+}
+
+model Problem {
+  id            String         @id @default(uuid())
+  title         String
+  slug          String         @unique
+  description   String
+  difficulty    String        @default("MEDIUM")
+  roundId       Int?          @default(1)
+  round         ContestRound? @relation(fields: [roundId], references: [id])
+  timeLimitMs   Int           @default(2000)
+  memoryLimitKb Int            @default(262144)
+  testCases     TestCase[]
+  submissions   Submission[]
+  snapshots     CodeSnapshot[]
+  createdAt     DateTime       @default(now())
+}
+
+model TestCase {
+  id             String   @id @default(uuid())
+  problemId      String
+  problem        Problem  @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  input          String
+  expectedOutput String
+  isHidden       Boolean  @default(false)
+}
+
+model Submission {
+  id              String   @id @default(uuid())
+  teamId          String
+  userId          String
+  problemId       String
+  languageId      Int
+  code            String
+  status          String   @default("QUEUED")
+  timeMs          Int?
+  memoryKb        Int?
+  score           Int      @default(0)
+  testCasesPassed Int      @default(0)
+  totalTestCases  Int      @default(0)
+  compilerOutput  String?
+  team            Team     @relation(fields: [teamId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
+  problem         Problem  @relation(fields: [problemId], references: [id])
+  createdAt       DateTime @default(now())
+}
+
+model CodeSnapshot {
+  id        String   @id @default(uuid())
+  teamId    String
+  problemId String
+  code      String
+  genId     Int
+  team      Team     @relation(fields: [teamId], references: [id])
+  problem   Problem  @relation(fields: [problemId], references: [id])
+  savedAt   DateTime @default(now())
+}
+
+model TelemetryLog {
+  id        String        @id @default(uuid())
+  teamId    String
+  userId    String
+  eventType TelemetryType
+  metadata  Json?
+  team      Team          @relation(fields: [teamId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
+  timestamp DateTime      @default(now())
+}
+
+model AdminSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model ContestRound {
+  id          Int       @id // 1 for Round 1, 2 for Round 2
+  title       String
+  description String?
+  status      String    @default("UPCOMING") // "UPCOMING" | "ACTIVE" | "COMPLETED" | "LOCKED"
+  durationMin Int       @default(45)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  problems    Problem[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+}
+
+
