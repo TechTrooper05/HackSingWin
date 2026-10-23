@@ -12,6 +12,7 @@ async function main() {
   await prisma.submission.deleteMany();
   await prisma.testCase.deleteMany();
   await prisma.problem.deleteMany();
+  await prisma.contestRound.deleteMany();
   await prisma.user.deleteMany();
   await prisma.team.deleteMany();
 
@@ -71,6 +72,26 @@ async function main() {
 
     console.log(`Created Team: ${team.name} (passCode: passcode${i}) with 2 members.`);
   }
+  
+  // 3.01 Create rounds before problems to avoid violating the foreign key constraint (Kartik)
+  await prisma.contestRound.createMany({
+    data: [
+      {
+        id: 1,
+        title: 'Round 1',
+        description: 'First competitive programming round',
+        status: 'UPCOMING',
+        durationMin: 45,
+      },
+      {
+        id: 2,
+        title: 'Round 2',
+        description: 'Second competitive programming round',
+        status: 'UPCOMING',
+        durationMin: 45,
+      },
+    ],
+  });
 
   // 3. Create Sample Problems with visible and hidden test cases
   const twoSum = await prisma.problem.create({
@@ -103,6 +124,7 @@ You may assume that each input would have **exactly one solution**, and you may 
 \`\`\`
 `,
       difficulty: 'EASY',
+      roundId: 1,
       timeLimitMs: 1000,
       memoryLimitKb: 65536,
       testCases: {
